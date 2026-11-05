@@ -1,0 +1,41 @@
+{
+  "$schema": "https://raw.githubusercontent.com/shurizzle/llm-router/refs/heads/master/config.schema.json",
+  "listen": ":8787",
+  "default_route": "anthropic",
+  "routes": [
+    {
+      "name": "synthetic",
+      "upstream": "https://api.synthetic.new/anthropic",
+      "models": ["hf:*", "syn:*"],
+      "auth": { "mode": "bearer", "token": "{env:SYNTHETIC_API_KEY}" },
+      "drop_headers": ["anthropic-beta"],
+      "count_tokens_model": "hf:deepseek-ai/DeepSeek-V4.1-Flash",
+      "quota": { "url": "https://api.synthetic.new/v2/quotas", "interval": "60s" }
+    },
+    {
+      "name": "nanogpt",
+      "upstream": "https://nano-gpt.com/api",
+      "models": ["nano:*"],
+      "strip_prefix": "nano:",
+      "auth": { "mode": "bearer", "token": "{env:NANOGPT_API_KEY}" }
+    },
+    {
+      "name": "deepseek",
+      "upstream": "https://api.deepseek.com/anthropic",
+      "models": ["deepseek-*"],
+      "auth": { "mode": "bearer", "token": "{env:DEEPSEEK_API_KEY}" },
+      "drop_headers": ["x-anthropic-billing-header", "anthropic-beta"],
+      "sanitize": {
+        "tool_schema": { "normalize_nul_escape": true },
+        "drop_metadata_user_id": true,
+        "hoist_inline_tools": true
+      }
+    },
+    {
+      "name": "anthropic",
+      "upstream": "https://api.anthropic.com",
+      "models": ["claude-*"],
+      "auth": { "mode": "passthrough" }
+    }
+  ]
+}

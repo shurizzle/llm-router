@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Config",
+  "description": "Config is the router configuration file.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "Editor hint pointing at `config.schema.json`. Accepted and ignored.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    },
+    "default_route": {
+      "type": "string",
+      "default": ""
+    },
+    "listen": {
+      "type": "string",
+      "default": ""
+    },
+    "max_body_bytes": {
+      "type": "integer",
+      "format": "int64",
+      "default": 67108864
+    },
+    "network": {
+      "description": "Outbound network options shared by every route.",
+      "$ref": "#/$defs/NetworkConfig"
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RouteConfig"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "AuthConfig": {
+      "description": "AuthConfig controls which credential reaches the upstream.",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "default": ""
+        },
+        "token": {
+          "description": "Credential template: literal text with `{env:NAME}` and `{file:PATH}` placeholders.",
+          "type": "string",
+          "default": ""
+        }
+      },
+      "additionalProperties": false
+    },
+    "NetworkConfig": {
+      "description": "NetworkConfig describes how the router reaches its upstreams.",
+      "type": "object",
+      "properties": {
+        "ca_file": {
+          "description": "PEM bundle added to the native root store. Empty disables it.\nSupports `{env:NAME}` and `{file:PATH}` templates.",
+          "type": "string",
+          "default": ""
+        },
+        "proxy": {
+          "description": "Outbound HTTP proxy (`http://` only); CONNECT is used for every upstream.\nEmpty disables the proxy. Supports `{env:NAME}` and `{file:PATH}` templates.",
+          "type": "string",
+          "default": ""
+        }
+      },
+      "additionalProperties": false
+    },
+    "QuotaConfig": {
+      "description": "QuotaConfig describes an upstream quota endpoint authenticated with the route credential.",
+      "type": "object",
+      "properties": {
+        "interval": {
+          "description": "Duration string, for example `60s` or `1m30s`.",
+          "type": "string",
+          "default": "60s"
+        },
+        "url": {
+          "type": "string",
+          "default": ""
+        }
+      },
+      "additionalProperties": false
+    },
+    "RouteConfig": {
+      "description": "RouteConfig describes one upstream and the models it serves.",
+      "type": "object",
+      "properties": {
+        "auth": {
+          "$ref": "#/$defs/AuthConfig"
+        },
+        "count_tokens_model": {
+          "description": "Replaces the model on /v1/messages/count_tokens when set.",
+          "type": "string",
+          "default": ""
+        },
+        "drop_fields": {
+          "description": "Top-level request body fields removed on /v1/messages*.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "drop_headers": {
+          "description": "Headers removed from requests sent upstream (e.g. anthropic-beta).",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "drop_tool_fields": {
+          "description": "Fields removed from every entry of the request \"tools\" array.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "models": {
+          "description": "Glob patterns: \"*\" matches any sequence, including \"/\".",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string",
+          "default": ""
+        },
+        "quota": {
+          "description": "Optionally polls an upstream quota endpoint and exports it as metrics.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QuotaConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rewrite": {
+          "description": "Maps an incoming model ID to the ID sent upstream. Keys also match the route.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        },
+        "sanitize": {
+          "description": "Body sanitization applied on /v1/messages*.",
+          "$ref": "#/$defs/SanitizeConfig"
+        },
+        "set_fields": {
+          "description": "Top-level request body fields set on /v1/messages*. Values support the same\ntemplates as `auth.token`; the expansion is parsed as JSON, falling back to a string.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        },
+        "set_headers": {
+          "description": "Request headers set before forwarding. Values support `{env:NAME}` and `{file:PATH}`.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        },
+        "strip_prefix": {
+          "description": "Removed from the model ID sent upstream (e.g. \"nano:\"). Rewrite wins.",
+          "type": "string",
+          "default": ""
+        },
+        "upstream": {
+          "type": "string",
+          "default": ""
+        }
+      },
+      "additionalProperties": false
+    },
+    "SanitizeConfig": {
+      "description": "SanitizeConfig groups request-body relaxations for upstreams with a stricter validator.",
+      "type": "object",
+      "properties": {
+        "drop_metadata_user_id": {
+          "description": "Removes `metadata.user_id`, which some upstreams validate as `^[a-zA-Z0-9_-]+$`.",
+          "type": "boolean",
+          "default": false
+        },
+        "hoist_inline_tools": {
+          "description": "Moves mid-conversation `tool_addition` definitions into the top-level `tools` array,\nfor upstreams without the `inline-tools` beta. `tool_removal` blocks are dropped.",
+          "type": "boolean",
+          "default": false
+        },
+        "sanitize_tool_use_ids": {
+          "description": "Rewrites `tool_use.id` and `tool_result.tool_use_id` to Anthropic's allowed charset.",
+          "type": "boolean",
+          "default": false
+        },
+        "tool_schema": {
+          "description": "Relaxation applied to every `tools[].input_schema`.",
+          "$ref": "#/$defs/ToolSchemaConfig"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ToolSchemaConfig": {
+      "description": "ToolSchemaConfig relaxes tool input schemas for backends with a restricted validator.",
+      "type": "object",
+      "properties": {
+        "drop_pattern": {
+          "description": "Remove the `pattern` keyword outright. Wins over the two rewrites.",
+          "type": "boolean",
+          "default": false
+        },
+        "normalize_nul_escape": {
+          "description": "Rewrite the `\\0` NUL escape to `\\x00` in every `pattern`.",
+          "type": "boolean",
+          "default": false
+        },
+        "string_formats": {
+          "description": "String `format` values to keep. Absent keeps every format.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "default": null,
+          "items": {
+            "type": "string"
+          }
+        },
+        "strip_lookaround": {
+          "description": "Remove zero-width lookaround assertions from every `pattern`.",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
